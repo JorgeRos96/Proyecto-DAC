@@ -2,37 +2,14 @@
   ******************************************************************************
   * @file    Templates/Src/main.c 
   * @author  MCD Application Team
-  * @brief   STM32F4xx HAL API Template project 
+  * @brief   Proyecto para el manejo del potenciometro. obtener la tensión 
+	*					 analógica de cada uno de canales analógicos conectados a los
+	*					 potenciómetros 
   *
   * @note    modified by ARM
   *          The modifications allow to use this file as User Code Template
   *          within the Device Family Pack.
   ******************************************************************************
-  * @attention
-  *
-  * <h2><center>&copy; COPYRIGHT(c) 2017 STMicroelectronics</center></h2>
-  *
-  * Redistribution and use in source and binary forms, with or without modification,
-  * are permitted provided that the following conditions are met:
-  *   1. Redistributions of source code must retain the above copyright notice,
-  *      this list of conditions and the following disclaimer.
-  *   2. Redistributions in binary form must reproduce the above copyright notice,
-  *      this list of conditions and the following disclaimer in the documentation
-  *      and/or other materials provided with the distribution.
-  *   3. Neither the name of STMicroelectronics nor the names of its contributors
-  *      may be used to endorse or promote products derived from this software
-  *      without specific prior written permission.
-  *
-  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-  * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-  * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   *
   ******************************************************************************
   */
@@ -70,27 +47,21 @@ uint32_t HAL_GetTick (void) {
 
 #endif
 
-/** @addtogroup STM32F4xx_HAL_Examples
-  * @{
-  */
 
-/** @addtogroup Templates
-  * @{
-  */
-
-/* Private typedef -----------------------------------------------------------*/
-/* Private define ------------------------------------------------------------*/
-/* Private macro -------------------------------------------------------------*/
 /* Private variables ---------------------------------------------------------*/
-DAC_HandleTypeDef hdac;
-float value = 0.2; 
-uint32_t var; 
+ADC_HandleTypeDef hadc1;
+uint32_t conversion = 0;
+float voltaje = 0;
+
 /* Private function prototypes -----------------------------------------------*/
 static void SystemClock_Config(void);
 static void Error_Handler(void);
-static void MX_DAC_Init(void);
-void retardo(uint32_t n_milisegundos);
+
 /* Private functions ---------------------------------------------------------*/
+static void MX_GPIO_Init(void);
+static void MX_ADC1_Init(void);
+void lectura(void);
+void retardo(uint32_t n_milisegundos);
 /**
   * @brief  Main program
   * @param  None
@@ -116,9 +87,9 @@ int main(void)
 
   /* Add your application code here
      */
-	MX_DAC_Init();
-	HAL_DAC_Start(&hdac, DAC1_CHANNEL_1);
-
+	MX_GPIO_Init();
+  MX_ADC1_Init();
+	
 #ifdef RTE_CMSIS_RTOS2
   /* Initialize CMSIS-RTOS2 */
   osKernelInitialize ();
@@ -133,12 +104,8 @@ int main(void)
   /* Infinite loop */
   while (1)
   {
-		var =  value*4096/3.3;
-		HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, var);
-		value += 0.5;
-		retardo(75);
-		if(value>3)
-			value = 0.2;
+		lectura();
+		retardo(10);
   }
 }
 
@@ -212,49 +179,7 @@ static void SystemClock_Config(void)
 }
 
 
-void retardo(uint32_t n_milisegundos){
-	uint32_t i=0;
-	uint32_t cuenta = 0;
-	cuenta = n_milisegundos*1000*168;
-	for(i=0;i < cuenta; i++);
-}
-/**
-  * @brief DAC Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_DAC_Init(void)
-{
 
-  /* USER CODE BEGIN DAC_Init 0 */
-
-  /* USER CODE END DAC_Init 0 */
-
-  DAC_ChannelConfTypeDef sConfig = {0};
-
-  /* USER CODE BEGIN DAC_Init 1 */
-
-  /* USER CODE END DAC_Init 1 */
-  /** DAC Initialization
-  */
-  hdac.Instance = DAC;
-  if (HAL_DAC_Init(&hdac) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /** DAC channel OUT1 config
-  */
-  sConfig.DAC_Trigger = DAC_TRIGGER_NONE;
-  sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
-  if (HAL_DAC_ConfigChannel(&hdac, &sConfig, DAC_CHANNEL_1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN DAC_Init 2 */
-
-  /* USER CODE END DAC_Init 2 */
-
-}
 /**
   * @brief GPIO Initialization Function
   * @param None
@@ -262,11 +187,86 @@ static void MX_DAC_Init(void)
   */
 static void MX_GPIO_Init(void)
 {
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
 
   /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
+
+  
 
 }
+
+/**
+  * @brief Función de inicialización del ADC
+  * @param None
+  * @retval None
+  */
+static void MX_ADC1_Init(void)
+{
+
+
+
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+   /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
+  */
+  hadc1.Instance = ADC1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
+  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc1.Init.ScanConvMode = DISABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_3;
+  sConfig.Rank = 1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+}
+/**
+  * @brief Función de lectura del valor del ADC y convierte el valor en la tensión equivalente
+  * @param None
+  * @retval None
+  */
+void lectura(void) {
+	
+		HAL_ADC_Start(&hadc1);
+		conversion = HAL_ADC_GetValue(&hadc1);
+		voltaje = conversion*3.3/4096;
+
+}
+/**
+  * @brief Función para realizar un wait del tiempo introducido  
+* @param n_milisegundos: tiempo en milisegundos que realiza el wait
+  * @retval None
+  */
+void retardo(uint32_t n_milisegundos){
+	uint32_t i=0;
+	uint32_t cuenta = 0;
+	cuenta = n_milisegundos*1000*168;
+	for(i=0;i < cuenta; i++);
+}
+/**
+  * @brief  This function is executed in case of error occurrence.
+  * @param  None
+  * @retval None
+  */
 static void Error_Handler(void)
 {
   /* User may add here some code to deal with this error */
