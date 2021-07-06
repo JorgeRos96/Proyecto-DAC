@@ -2,9 +2,9 @@
   ******************************************************************************
   * @file    Templates/Src/main.c 
   * @author  MCD Application Team
-  * @brief   Proyecto para el manejo del potenciometro. obtener la tensión 
-	*					 analógica de cada uno de canales analógicos conectados a los
-	*					 potenciómetros 
+  * @brief   Proyecto para el manejo de uno de los jacks disponibles, donde 
+	*					 se genera una señal utilizando el conversor Digital-Analógico  
+  * 
   *
   * @note    modified by ARM
   *          The modifications allow to use this file as User Code Template
@@ -49,19 +49,18 @@ uint32_t HAL_GetTick (void) {
 
 
 /* Private variables ---------------------------------------------------------*/
-ADC_HandleTypeDef hadc1;
-uint32_t conversion = 0;
-float voltaje = 0;
+DAC_HandleTypeDef hdac;
+float value = 0.2; 
+uint32_t var; 
+uint32_t valor = 0;
 
 /* Private function prototypes -----------------------------------------------*/
 static void SystemClock_Config(void);
 static void Error_Handler(void);
+static void MX_DAC_Init(void);
+void retardo(uint32_t n_milisegundos);
 
 /* Private functions ---------------------------------------------------------*/
-static void MX_GPIO_Init(void);
-static void MX_ADC1_Init(void);
-void lectura(void);
-void retardo(uint32_t n_milisegundos);
 /**
   * @brief  Main program
   * @param  None
@@ -87,9 +86,9 @@ int main(void)
 
   /* Add your application code here
      */
-	MX_GPIO_Init();
-  MX_ADC1_Init();
-	
+	MX_DAC_Init();
+	HAL_DAC_Start(&hdac, DAC1_CHANNEL_1);
+
 #ifdef RTE_CMSIS_RTOS2
   /* Initialize CMSIS-RTOS2 */
   osKernelInitialize ();
@@ -104,8 +103,13 @@ int main(void)
   /* Infinite loop */
   while (1)
   {
-		lectura();
-		retardo(10);
+		var =  value*4096/3.3;
+		HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, var);
+		value += 0.5;
+		retardo(75);
+		valor = HAL_DAC_GetValue(&hdac, DAC_CHANNEL_1);
+		if(value>3)
+			value = 0.2;
   }
 }
 
@@ -179,81 +183,9 @@ static void SystemClock_Config(void)
 }
 
 
-
-/**
-  * @brief GPIO Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_GPIO_Init(void)
-{
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
-
-  /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOC_CLK_ENABLE();
-  __HAL_RCC_GPIOA_CLK_ENABLE();
-  __HAL_RCC_GPIOB_CLK_ENABLE();
-
-  
-
-}
-
-/**
-  * @brief Función de inicialización del ADC
-  * @param None
-  * @retval None
-  */
-static void MX_ADC1_Init(void)
-{
-
-
-
-  ADC_ChannelConfTypeDef sConfig = {0};
-
-   /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
-  */
-  hadc1.Instance = ADC1;
-  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
-  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
-  hadc1.Init.ScanConvMode = DISABLE;
-  hadc1.Init.ContinuousConvMode = DISABLE;
-  hadc1.Init.DiscontinuousConvMode = DISABLE;
-  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
-  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 1;
-  hadc1.Init.DMAContinuousRequests = DISABLE;
-  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
-  if (HAL_ADC_Init(&hadc1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-  */
-  sConfig.Channel = ADC_CHANNEL_3;
-  sConfig.Rank = 1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-}
-/**
-  * @brief Función de lectura del valor del ADC y convierte el valor en la tensión equivalente
-  * @param None
-  * @retval None
-  */
-void lectura(void) {
-	
-		HAL_ADC_Start(&hadc1);
-		conversion = HAL_ADC_GetValue(&hadc1);
-		voltaje = conversion*3.3/4096;
-
-}
 /**
   * @brief Función para realizar un wait del tiempo introducido  
-* @param n_milisegundos: tiempo en milisegundos que realiza el wait
+	* @param n_milisegundos: tiempo en milisegundos que realiza el wait
   * @retval None
   */
 void retardo(uint32_t n_milisegundos){
@@ -263,10 +195,40 @@ void retardo(uint32_t n_milisegundos){
 	for(i=0;i < cuenta; i++);
 }
 /**
-  * @brief  This function is executed in case of error occurrence.
-  * @param  None
+  * @brief DAC Initialization Function
+  * @param None
   * @retval None
   */
+static void MX_DAC_Init(void)
+{
+  DAC_ChannelConfTypeDef sConfig = {0};
+  /** DAC Initialization
+  */
+  hdac.Instance = DAC;
+  if (HAL_DAC_Init(&hdac) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** DAC channel OUT1 config
+  */
+  sConfig.DAC_Trigger = DAC_TRIGGER_NONE;
+  sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
+  if (HAL_DAC_ConfigChannel(&hdac, &sConfig, DAC_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
+/**
+  * @brief GPIO Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_GPIO_Init(void)
+{
+  /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOA_CLK_ENABLE();
+
+}
 static void Error_Handler(void)
 {
   /* User may add here some code to deal with this error */
