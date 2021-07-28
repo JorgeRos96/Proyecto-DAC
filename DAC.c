@@ -72,7 +72,7 @@ void set_value_DAC (float value){
 }
 
 /**
-  * @brief Función dque obtiene el valor del DAC 
+  * @brief Función que obtiene el valor del DAC (0 a 4096)
   * @param None
   * @retval Se devuelve el valor del DAC
   */
