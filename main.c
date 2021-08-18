@@ -3,7 +3,7 @@
   * @file    Templates/Src/main.c 
   * @author  MCD Application Team
   * @brief   Proyecto para el manejo de uno de los jacks disponibles de la tarjeta
-	*					 de aplicaciones, donde se genera una señal continua cada 75 ms 
+	*					 de aplicaciones, donde se genera una señal continua cada 500 ms 
 	*					 utilizando el conversorDigital-Analógico. A traves de la USART, se  
   * 				 muestra por el terminal el valor de la señal que se genera en el DAC.
 	*					 Se conecta el DAC 1 canal 1 al jack de salida disponible en la 
@@ -27,6 +27,7 @@
 #include "DAC.h"
 #include "Delay.h"
 #include "USART.h"
+#include "Watchdog.h"
 
 #ifdef _RTE_
 #include "RTE_Components.h"             // Component selection
@@ -50,7 +51,10 @@ static void Error_Handler(int fallo);
   */
 int main(void)
 {
-
+	/*Inicialización del IWDG*/
+	if (init_Watchdog() != 0)
+			Error_Handler(5);
+	
   /* STM32F4xx HAL library initialization:
        - Configure the Flash prefetch, Flash preread and Buffer caches
        - Systick timer is configured by default as source of time base, but user 
@@ -95,7 +99,7 @@ int main(void)
 		value += 0.5;
 		if(value>3.3)
 			value = 0.2;
-		Delay_ms(750);
+		Delay_ms(500);
 		/*Se muestra el valor del DAC*/
 		valor = get_DAC();
 		/* Texto que se desea enviar*/
@@ -104,7 +108,7 @@ int main(void)
 		if (tx_USART(buf, size) != 0)
 			Error_Handler(3);
 		
-		
+		reset_Watchdog();
   }
 }
 
@@ -203,7 +207,11 @@ static void Error_Handler(int fallo)
 	else if (fallo == 4)
 		/* Mensaje si se ha producido un error en la inicialización del DAC*/
 		printf(buf,"\r Se ha producido un error al inicializar el DAC\n");
-	 while(1)
+	else if (fallo == 5)
+		/* Mensaje si se ha producido un error en la inicialización del Watchdog*/
+		printf(buf,"\r Se ha producido un error al inicializar el Watchdog\n");
+  
+	while(1)
   {
   }
 }
